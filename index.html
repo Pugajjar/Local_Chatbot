@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Workstation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Highlight.js for Code Beautification -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #131314;
+            --surface-color: #1E1F20;
+            --accent-gradient: linear-gradient(135deg, #4da0ff 0%, #a855f7 100%);
+        }
+        body { background-color: var(--bg-color); color: #E3E3E3; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        
+        /* Animations */
+        @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+        .gradient-text { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* Code Block Styling */
+        .hljs { background: #1b1b1b; padding: 1em; border-radius: 0 0 0.5rem 0.5rem; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <div class="w-full p-4 flex justify-between items-center bg-[#131314]/95 backdrop-blur z-20 border-b border-gray-800">
+        <div class="flex items-center gap-2">
+            <h1 class="text-xl font-semibold tracking-wide">AI <span class="font-normal text-gray-400">Workstation</span></h1>
+        </div>
+        <button onclick="openCodeModal()" class="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors text-sm font-medium shadow-lg shadow-purple-900/20">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+            Code Beautifier
+        </button>
+    </div>
+
+    <!-- Chat Area -->
+    <div id="chat-container" class="flex-1 overflow-y-auto w-full max-w-4xl mx-auto p-4 pb-40 space-y-6">
+        <div class="flex flex-col items-center justify-center mt-20 mb-10 text-center space-y-2" id="welcome-screen">
+            <h2 class="text-5xl font-bold gradient-text pb-2">Hello, Human.</h2>
+            <p class="text-gray-400 text-lg">I can read PDFs, Excel, and write code for you.</p>
+        </div>
+        <div id="chat-box" class="flex flex-col space-y-6"></div>
+        
+        <!-- Loading Dots -->
+        <div id="typing-indicator" class="hidden flex gap-2 items-center p-2">
+            <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+            <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-75"></div>
+            <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-150"></div>
+        </div>
+    </div>
+
+    <!-- Input Area (Fixed Bottom) -->
+    <div class="fixed bottom-0 w-full bg-[#131314] pt-2 pb-6 px-4 z-10">
+        <div class="max-w-3xl mx-auto flex flex-col gap-3">
+            
+            <!-- Capsule Buttons -->
+            <div class="flex gap-2 justify-center">
+                <button onclick="setMode('built')" class="px-4 py-1.5 rounded-full bg-[#1E1F20] border border-gray-700 hover:border-blue-500 hover:text-blue-400 text-xs transition-colors">
+                    🛠️ Built Info
+                </button>
+                <button onclick="setMode('conversation')" class="px-4 py-1.5 rounded-full bg-[#1E1F20] border border-gray-700 hover:border-green-500 hover:text-green-400 text-xs transition-colors">
+                    💬 Conversation
+                </button>
+            </div>
+
+            <!-- File Preview -->
+            <div id="file-preview" class="hidden animate-slide-up bg-[#282A2C] border border-gray-700 rounded-lg px-3 py-2 flex items-center justify-between w-fit mx-auto mb-1">
+                <span id="file-name" class="text-xs text-gray-300 truncate max-w-[200px]">file.pdf</span>
+                <button onclick="clearFile()" class="ml-3 text-red-400 hover:text-red-300">&times;</button>
+            </div>
+
+            <!-- Main Input Bar -->
+            <form id="chat-form" class="relative group w-full">
+                <div class="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full opacity-0 group-hover:opacity-20 transition duration-500 blur-md pointer-events-none"></div>
+                
+                <div class="relative flex items-center w-full bg-[#1E1F20] border border-gray-700 rounded-full focus-within:border-gray-500 focus-within:bg-[#282A2C] shadow-xl">
+                    
+                    <!-- Attach Button -->
+                    <input type="file" id="file-input" class="hidden" accept=".txt,.pdf,.docx,.xlsx,.csv">
+                    <button type="button" onclick="document.getElementById('file-input').click()" class="ml-2 p-3 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transform rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                    </button>
+
+                    <!-- Text Input -->
+                    <input type="text" id="user-input" class="w-full bg-transparent text-[#E3E3E3] py-4 pl-3 pr-20 focus:outline-none placeholder-gray-500" placeholder="Ask me anything..." autocomplete="off">
+                    
+                    <!-- Mic Button -->
+                    <button type="button" id="mic-btn" onclick="toggleSpeech()" class="absolute right-12 p-2 text-gray-400 hover:text-red-400 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    </button>
+
+                    <!-- Send Button -->
+                    <button type="submit" class="absolute right-2 p-2 bg-[#282A2C] hover:bg-[#3C4043] rounded-full text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" /></svg>
+                    </button>
+                </div>
+            </form>
+            <p class="text-center text-[10px] text-gray-600">Locally processed. Documents are summarized offline.</p>
+        </div>
+    </div>
+
+    <!-- CODE BEAUTIFIER MODAL -->
+    <div id="code-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-[#1E1F20] w-full max-w-3xl rounded-xl border border-gray-700 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-white flex items-center gap-2">✨ Code Beautifier</h3>
+                <button onclick="closeCodeModal()" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            
+            <div class="p-4 flex-1 overflow-y-auto flex flex-col gap-4">
+                <textarea id="code-input" class="w-full h-32 bg-[#131314] text-gray-300 p-3 rounded-lg border border-gray-700 focus:border-purple-500 outline-none font-mono text-sm" placeholder="Paste your messy code here..."></textarea>
+                <div class="flex justify-end gap-2">
+                    <button onclick="beautifyCode()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors">Beautify</button>
+                </div>
+                <div id="code-output-container" class="hidden">
+                    <div class="flex justify-between items-end mb-1">
+                        <span class="text-xs text-gray-500">Preview</span>
+                        <button onclick="downloadCode()" class="text-xs text-blue-400 hover:underline">Download HTML</button>
+                    </div>
+                    <pre><code id="code-result" class="language-python"></code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CHAT LOGIC ---
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const chatBox = document.getElementById('chat-box');
+        const fileInput = document.getElementById('file-input');
+        let selectedFile = null;
+
+        fileInput.addEventListener('change', (e) => {
+            if(e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                document.getElementById('file-name').textContent = selectedFile.name;
+                document.getElementById('file-preview').classList.remove('hidden');
+            }
+        });
+        function clearFile() {
+            selectedFile = null;
+            fileInput.value = '';
+            document.getElementById('file-preview').classList.add('hidden');
+        }
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if(!text && !selectedFile) return;
+
+            document.getElementById('welcome-screen').style.display = 'none';
+            addBubble(text + (selectedFile ? `\n📎 [${selectedFile.name}]` : ''), true);
+            userInput.value = '';
+            document.getElementById('typing-indicator').classList.remove('hidden');
+
+            const formData = new FormData();
+            if(text) formData.append('message', text);
+            if(selectedFile) formData.append('file', selectedFile);
+
+            try {
+                const res = await fetch('http://127.0.0.1:5000/chat', { method: 'POST', body: formData });
+                const data = await res.json();
+                document.getElementById('typing-indicator').classList.add('hidden');
+                addBubble(data.response, false);
+                clearFile();
+            } catch(err) {
+                console.error(err);
+                document.getElementById('typing-indicator').classList.add('hidden');
+                addBubble("Error: Backend not reachable.", false);
+            }
+        });
+
+        // --- NEW: PARSE MESSAGE FOR CODE BLOCKS ---
+        function addBubble(text, isUser) {
+            const div = document.createElement('div');
+            div.className = `flex gap-3 ${isUser ? 'flex-row-reverse' : ''} animate-slide-up max-w-full`;
+            
+            const avatarHtml = `
+                <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isUser ? 'bg-gray-600' : 'bg-gradient-to-br from-blue-500 to-purple-600'}">
+                    ${isUser ? '👤' : '✨'}
+                </div>`;
+            
+            // Container for message content
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `max-w-[85%] w-full text-sm leading-relaxed overflow-hidden ${isUser ? 'bg-[#282A2C] rounded-2xl rounded-tr-none px-4 py-2' : ''}`;
+
+            if (isUser) {
+                contentDiv.textContent = text;
+            } else {
+                // Parse for code blocks from bot
+                // Regex matches ```language \n code \n ```
+                const parts = text.split(/(```\w*[\s\S]*?```)/g);
+                
+                parts.forEach(part => {
+                    if (part.startsWith('```') && part.endsWith('```')) {
+                        // Extract language and code
+                        const lines = part.split('\n');
+                        const firstLine = lines[0].replace('```', '').trim();
+                        const language = firstLine || 'text';
+                        const code = lines.slice(1, -1).join('\n'); // remove first and last line
+
+                        // Create UI Container
+                        const container = document.createElement('div');
+                        container.className = "rounded-lg overflow-hidden border border-gray-700 mt-2 mb-2 w-full";
+                        
+                        // Header
+                        const header = document.createElement('div');
+                        header.className = "bg-[#1E1F20] px-3 py-2 flex justify-between items-center border-b border-gray-700";
+                        header.innerHTML = `<span class="text-xs font-mono text-gray-400 uppercase">${language}</span>`;
+                        
+                        // Download Button
+                        const btn = document.createElement('button');
+                        btn.className = "flex items-center gap-1 text-xs text-blue-400 hover:text-white transition-colors";
+                        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Download`;
+                        btn.onclick = () => downloadString(code, `snippet.${getExt(language)}`);
+                        
+                        header.appendChild(btn);
+                        container.appendChild(header);
+
+                        // Code Block
+                        const pre = document.createElement('pre');
+                        pre.className = "m-0";
+                        const codeElem = document.createElement('code');
+                        codeElem.className = `language-${language} text-xs`;
+                        codeElem.textContent = code;
+                        
+                        pre.appendChild(codeElem);
+                        container.appendChild(pre);
+                        contentDiv.appendChild(container);
+                        
+                        // Apply Highlight.js
+                        hljs.highlightElement(codeElem);
+                        
+                    } else {
+                        // Regular text
+                        if(part.trim()) {
+                            const p = document.createElement('div');
+                            p.className = "whitespace-pre-wrap mb-1";
+                            p.textContent = part;
+                            contentDiv.appendChild(p);
+                        }
+                    }
+                });
+            }
+
+            div.innerHTML = avatarHtml;
+            div.appendChild(contentDiv);
+            chatBox.appendChild(div);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        // Helper to get extension
+        function getExt(lang) {
+            const map = { 'python': 'py', 'javascript': 'js', 'cpp': 'cpp', 'java': 'java', 'html': 'html', 'css': 'css' };
+            return map[lang.toLowerCase()] || 'txt';
+        }
+
+        // Helper to download string as file
+        function downloadString(text, filename) {
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // --- CAPSULE BUTTONS ---
+        function setMode(mode) {
+            if(mode === 'built') userInput.value = "Who built you and what tech do you use?";
+            if(mode === 'conversation') userInput.value = "Let's have a conversation. How are you?";
+            userInput.focus();
+        }
+
+        // --- SPEECH TO TEXT ---
+        function toggleSpeech() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if(!SpeechRecognition) { alert("Browser does not support speech."); return; }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            const micBtn = document.getElementById('mic-btn');
+            micBtn.classList.add('text-red-500', 'animate-pulse');
+            recognition.start();
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                micBtn.classList.remove('text-red-500', 'animate-pulse');
+            };
+            recognition.onerror = () => { micBtn.classList.remove('text-red-500', 'animate-pulse'); };
+        }
+
+        // --- CODE BEAUTIFIER ---
+        function openCodeModal() { document.getElementById('code-modal').classList.remove('hidden'); document.getElementById('code-modal').classList.add('flex'); }
+        function closeCodeModal() { document.getElementById('code-modal').classList.add('hidden'); document.getElementById('code-modal').classList.remove('flex'); }
+        function beautifyCode() {
+            const raw = document.getElementById('code-input').value;
+            const outputBlock = document.getElementById('code-result');
+            document.getElementById('code-output-container').classList.remove('hidden');
+            outputBlock.textContent = raw;
+            hljs.highlightElement(outputBlock);
+        }
+        function downloadCode() {
+            const raw = document.getElementById('code-input').value;
+            const htmlContent = `<html><head><title>Code</title><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"><\/script><script>hljs.highlightAll();<\/script><style>body{background:#131314;color:#fff;padding:20px;font-family:monospace;}</style></head><body><pre><code>${raw.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre></body></html>`;
+            downloadString(htmlContent, "beautified_code.html");
+        }
+    </script>
+</body>
+</html>
